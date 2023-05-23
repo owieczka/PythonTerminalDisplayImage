@@ -21,7 +21,7 @@ def display(img_src):
     display += f"\x1b[48;2;0;0;0m"
     display += "\n"
   
-  print(display)
+  print(display[:-1])
   
 def resize_image(src_img, dst_width, dst_height):
   #src_height, src_width, _ = img.shape
@@ -33,11 +33,20 @@ def resize_image(src_img, dst_width, dst_height):
 def main():
   parser = argparse.ArgumentParser()
   parser.add_argument("filename")
+  parser.add_argument("-sx",default=0,type=int)
+  parser.add_argument("-sy",default=0,type=int)
+  parser.add_argument("-dx",default=32000,type=int)
+  parser.add_argument("-dy",default=32000,type=int)
   args = parser.parse_args()
   filename = args.filename
+  sx = args.sx
+  sy = args.sy
+  dx = args.dx
+  dy = args.dy
   print(f"{filename}")
 
   image_src = imageio.v3.imread(filename)
+  #image_src = image_src[1600:1700,1600:1700,:]
 
   columns, rows = shutil.get_terminal_size()
   rows = rows-1
@@ -46,6 +55,18 @@ def main():
   print(f"Screen size: {columns}x{rows}")
 
   image_height, image_width, _ = image_src.shape
+
+  print(f"Image size: {image_width}x{image_height}")
+
+  ex = min(sx+dx,image_width)
+  ey = min(sy+dy,image_height)
+
+  image_src = image_src[sy:ey,sx:ex,:]
+
+  image_height, image_width, _ = image_src.shape
+
+  print(f"Crop {sx}x{sy}-{ex}x{ey} {dx}x{dy}")
+  print(f"Image crop: {image_width}x{image_height}")
 
   image_dst_width_a = int(rows * image_width / image_height)
   image_dst_height_a = rows
