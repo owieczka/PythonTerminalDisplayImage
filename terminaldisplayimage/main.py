@@ -1,9 +1,24 @@
 #!/usr/bin/env python
 import argparse
+import sys
+import os
+import threading
+import queue
+
 import numpy as np
 import imageio
 import shutil
 import cv2
+
+def keyboard_thread_fun(queue):
+  #os.set_blocking(0,False)
+  #sys.stdin = os.fdopen(0,'rb',0)
+  #sys.stdout = os.fdopen(1,'wb',0)
+  while True:
+    queue.put(sys.stdin.read(1))
+  #aa = open(0,'rb')
+  #while True:
+  #  queue.put(aa.read(1))
 
 def display(img_src):
   src_height, src_width, src_ch = img_src.shape
@@ -43,7 +58,16 @@ def main():
   sy = args.sy
   dx = args.dx
   dy = args.dy
+
+  #os.set_blocking(0,False)
+  #os.set_blocking(1,False)
+
   print(f"{filename}")
+
+  keyboard_queue = queue.Queue()
+  keyboard_thread = threading.Thread(target=keyboard_thread_fun, args=(keyboard_queue,))
+  keyboard_thread.deamon = True
+  keyboard_thread.start()
 
   image_src = imageio.v3.imread(filename)
   #image_src = image_src[1600:1700,1600:1700,:]
@@ -61,34 +85,44 @@ def main():
   ex = min(sx+dx,image_width)
   ey = min(sy+dy,image_height)
 
-  image_src = image_src[sy:ey,sx:ex,:]
+  app_is_running = True
+  while app_is_running:
+    image_croped = image_src[sy:ey,sx:ex,:]
 
-  image_height, image_width, _ = image_src.shape
+    image_height, image_width, _ = image_croped.shape
 
-  print(f"Crop {sx}x{sy}-{ex}x{ey} {dx}x{dy}")
-  print(f"Image crop: {image_width}x{image_height}")
+    print(f"Crop {sx}x{sy}-{ex}x{ey} {dx}x{dy}")
+    print(f"Image crop: {image_width}x{image_height}")
 
-  image_dst_width_a = int(rows * image_width / image_height)
-  image_dst_height_a = rows
+    image_dst_width_a = int(rows * image_width / image_height)
+    image_dst_height_a = rows
 
-  image_dst_width_b = columns
-  image_dst_height_b = int(columns * image_height / image_width)
+    image_dst_width_b = columns
+    image_dst_height_b = int(columns * image_height / image_width)
 
 
-  image_dst_width = image_dst_width_b
-  image_dst_height = image_dst_height_b
+    image_dst_width = image_dst_width_b
+    image_dst_height = image_dst_height_b
 
-  if image_dst_width_a<columns:
-    image_dst_width = image_dst_width_a
-    image_dst_height = image_dst_height_a    
+    if image_dst_width_a<columns:
+      image_dst_width = image_dst_width_a
+      image_dst_height = image_dst_height_a    
 
-  image_dst = resize_image(image_src, image_dst_width, image_dst_height)
+    image_dst = resize_image(image_croped, image_dst_width, image_dst_height)
 
-  print(f"{image_width}x{image_height}")
-  print(f"{image_dst_width_a}x{image_dst_height_a} {image_dst_width_b}x{image_dst_height_b}")
-  print(f"{image_dst_width}x{image_dst_height}")
-  display(image_dst)  
-  
+    print(f"{image_width}x{image_height}")
+    print(f"{image_dst_width_a}x{image_dst_height_a} {image_dst_width_b}x{image_dst_height_b}")
+    print(f"{image_dst_width}x{image_dst_height}")
+    display(image_dst)  
+
+    character = keyboard_queue.get(1)
+    match character:
+      case b"a":
+        sx = sx + 1
+        ex = ex + 1
+      case b"d":
+        sx = sx - 1
+        ex = ex - 1
   #print(f"{image_src.shape}")
 
 if __name__=="__main__": 
