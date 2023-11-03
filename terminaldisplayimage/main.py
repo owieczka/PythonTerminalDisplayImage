@@ -27,6 +27,8 @@ import imageio
 import shutil
 import cv2
 
+import math
+
 #--------------------------------------
 # Screen Class
 #--------------------------------------
@@ -158,20 +160,28 @@ def resize_image(src_img, dst_width, dst_height):
   
   return dst_img
 
+def calc_image_crop(cx,cy,zoom,image_width,image_height,columns,rows):
+  sx = min(max(math.floor(cx - columns / 2.0 * zoom + 0.5),0),image_width)
+  ex = min(max(math.floor(cx + columns / 2.0 * zoom + 0.5),0),image_width)
+  sy = min(max(math.floor(cy - rows / 2.0 * zoom + 0.5),0),image_height)
+  ey = min(max(math.floor(cy + rows / 2.0 * zoom + 0.5),0),image_height)
+  return sx,sy,ex,ey
+
 def main():
-  parser = argparse.ArgumentParser()
-  parser.add_argument("filename")
-  parser.add_argument("-sx",default=0,type=int)
-  parser.add_argument("-sy",default=0,type=int)
-  parser.add_argument("-dx",default=32000,type=int)
-  parser.add_argument("-dy",default=32000,type=int)
+  parser = argparse.ArgumentParser(
+    prog = "TerminalDisplayImage",
+    description = "Allow to preview image files in a terminal"
+  )
+  parser.add_argument("filename", help="Filename to a image file to open")
+  parser.add_argument("-cx",default=None,type=int)
+  parser.add_argument("-cy",default=None,type=int)
+  parser.add_argument("-zoom",default=None,type=float)
   parser.add_argument("--interactive", action='store_true')
   args = parser.parse_args()
   filename = args.filename
-  sx = args.sx
-  sy = args.sy
-  dx = args.dx
-  dy = args.dy
+  cx = args.cx
+  cy = args.cy
+  zoom = args.zoom
 
   app_is_running = args.interactive
   
@@ -188,14 +198,23 @@ def main():
 
   image_src = imageio.v3.imread(filename)
 
-  image_height, image_width, _ = image_src.shape
-  dx = min(dx, image_width)
-  dy = min(dy, image_height)
-  ex = min(sx+dx,image_width)
-  ey = min(sy+dy,image_height)
+  image_src_height, image_src_width, _ = image_src.shape
+  if not cx:
+    cx = image_src_width // 2
+  if not cy:
+    cy = image_src_height // 2
+
+  if not zoom:
+    zoom = max(image_src_width / columns, image_src_height / rows)
+
+  sx, sy, ex, ey = calc_image_crop(cx,cy,zoom,image_src_width,image_src_height,columns,rows)
+  #dx = min(dx, image_width)
+  #dy = min(dy, image_height)
+  #ex = min(sx+dx,image_width)
+  #ey = min(sy+dy,image_height)
 
   if not args.interactive:
-    Screen.wr(f"Image size: {image_width}x{image_height}\r\n")
+    Screen.wr(f"Image size: {image_src_width}x{image_src_height}\r\n")
 
   Screen.cls()
   Screen.goto(0,0)
@@ -234,43 +253,30 @@ def main():
       key = Keyboard.get_input()
      
       #character = keyboard_queue.get(1)
+      crop_change = False
       match key:
         case b"a":
-          sx = sx - 1
-          ex = ex - 1
+          cx = cx - 1
+          crop_change = True
         case b"d":
-          sx = sx + 1
-          ex = ex + 1
+          cx = cx + 1
+          crop_change = True
         case b"w":
-          sy = sy - 1
-          ey = ey - 1
+          cy = cy - 1
+          crop_change = True
         case b"s":
-          sy = sy + 1
-          ey = ey + 1
+          cy = cy + 1
+          crop_change = True
         case b"=": # Plus + Zoom in
-          dx = dx // 2
-          dy = dy // 2
-          dx2 = dx // 2
-          dy2 = dy // 2
-          cx = (ex + sx) // 2
-          cy = (ey + sy) // 2
-          sx = cx - dx2
-          ex = cx + dx2
-          sy = cy - dy2
-          ey = cy + dy2           
+          zoom = zoom - 1   
+          crop_change = True      
         case b"-": # Minus - Zoom out
-          dx = dx * 2
-          dy = dy * 2
-          dx2 = dx // 2
-          dy2 = dy // 2
-          cx = (ex + sx) // 2
-          cy = (ey + sy) // 2
-          sx = cx - dx2
-          ex = cx + dx2
-          sy = cy - dy2
-          ey = cy + dy2
+          zoom = zoom + 1
+          crop_change = True
         case b"q":
           app_is_running = False
+      if crop_change:
+        sx, sy, ex, ey = calc_image_crop(cx,cy,zoom,image_src_width,image_src_height,columns,rows)
     #print(f"{image_src.shape}")
     #Screen.wr(key)
     if not app_is_running:
