@@ -16,11 +16,17 @@
 # Author:       Krzysztof Wegner (Owieczka)
 #-------------------------------------
 
+# ToDo
+#-------------------------------------
+# [ ] Odświerzenie przy skalowaniu terminalu
+# [ ] Obsługa myszki
+# [ ] Przesuwanie skalowane zoomem
+#    
+#-------------------------------------
+
 import argparse
 import sys
 import os
-#import threading
-#import queue
 
 import numpy as np
 import imageio
@@ -101,7 +107,7 @@ class Keyboard:
   if sys.platform.startswith("linux"):
     kbuf = b""
     @classmethod
-    def get_input(cls):
+    def get_input(cls) -> bytes:
       if cls.kbuf:
         key = cls.kbuf[0:1]
         cls.kbuf = cls.kbuf[1:]
@@ -114,7 +120,7 @@ class Keyboard:
       return key
   elif sys.platform.startswith("win32"):
     @classmethod
-    def get_input(cls):
+    def get_input(cls) -> bytes:
       from msvcrt import getch
       return getch()
 
@@ -127,11 +133,15 @@ if sys.platform.startswith("linux"):
 elif sys.platform.startswith("win32"):
   PIXEL_CHARACTER = b'\xdf'
 
-def display(img_src):
+def display(img_src, columns, rows):
   src_height, src_width, src_ch = img_src.shape
   display = b""
   
   for y in range(src_height//2):
+    #for x in range(math.floor((columns-src_width)/2)):
+    #  display += b"\x1b[38;2;0;0;0m"
+    #  display += b"\x1b[48;2;0;0;0m"
+    #  display += PIXEL_CHARACTER
     for x in range(src_width):
       #display += f"\x1b[38;2;{img_src[y*2+0,x,0]};{img_src[y*2+0,x,1]};{img_src[y*2+0,x,2]}m"
       #display += f"\x1b[48;2;{img_src[y*2+1,x,0]};{img_src[y*2+1,x,1]};{img_src[y*2+1,x,2]}m"
@@ -141,6 +151,14 @@ def display(img_src):
       #display += u'\u04d2'
       #display += u'\ue29680'
       #display += u'\u2580'
+      display += PIXEL_CHARACTER
+    #for x in range(math.ceil((columns-src_width)/2)):
+    #  display += b"\x1b[38;2;0;0;0m"
+    #  display += b"\x1b[48;2;0;0;0m"
+    #  display += PIXEL_CHARACTER
+    for x in range((columns-src_width)):
+      display += b"\x1b[38;2;0;0;0m"
+      display += b"\x1b[48;2;0;0;0m"
       display += PIXEL_CHARACTER
     display += b"\x1b[38;2;0;0;0m"
     display += b"\x1b[48;2;0;0;0m"
@@ -161,22 +179,28 @@ def resize_image(src_img, dst_width, dst_height):
   return dst_img
 
 def calc_image_crop(cx,cy,zoom,image_width,image_height,columns,rows):
-  sx = min(max(math.floor(cx - columns / 2.0 * zoom + 0.5),0),image_width)
-  ex = min(max(math.floor(cx + columns / 2.0 * zoom + 0.5),0),image_width)
-  sy = min(max(math.floor(cy - rows / 2.0 * zoom + 0.5),0),image_height)
-  ey = min(max(math.floor(cy + rows / 2.0 * zoom + 0.5),0),image_height)
+  sx = min(max(math.floor(cx - columns / 2.0 * zoom + 0.0),0),image_width)
+  ex = min(max(math.floor(cx + columns / 2.0 * zoom + 1.0),0),image_width)
+  sy = min(max(math.floor(cy - rows / 2.0 * zoom + 0.0),0),image_height)
+  ey = min(max(math.floor(cy + rows / 2.0 * zoom + 1.0),0),image_height)
+
+  #sx = min(max(math.floor(cx - columns / 2.0 * math.sqrt(2.0)**zoom + 0.5),0),image_width)
+  #ex = min(max(math.floor(cx + columns / 2.0 * math.sqrt(2.0)**zoom + 0.5),0),image_width)
+  #sy = min(max(math.floor(cy - rows / 2.0 * math.sqrt(2.0)**zoom + 0.5),0),image_height)
+  #ey = min(max(math.floor(cy + rows / 2.0 * math.sqrt(2.0)**zoom + 0.5),0),image_height)
+
   return sx,sy,ex,ey
 
 def main():
   parser = argparse.ArgumentParser(
     prog = "TerminalDisplayImage",
-    description = "Allow to preview image files in a terminal"
+    description = "Allow to preview image files in a terminal. Works both on windows and linux"
   )
   parser.add_argument("filename", help="Filename to a image file to open")
-  parser.add_argument("-cx",default=None,type=int)
+  parser.add_argument("-cx",default=None,type=int, help="Position of the image center")
   parser.add_argument("-cy",default=None,type=int)
-  parser.add_argument("-zoom",default=None,type=float)
-  parser.add_argument("--interactive", action='store_true')
+  parser.add_argument("-zoom",default=None,type=float, help="Requested zoom level")
+  parser.add_argument("--interactive", action='store_true', help="Interactive mode")
   args = parser.parse_args()
   filename = args.filename
   cx = args.cx
@@ -199,6 +223,7 @@ def main():
   image_src = imageio.v3.imread(filename)
 
   image_src_height, image_src_width, _ = image_src.shape
+  
   if not cx:
     cx = image_src_width // 2
   if not cy:
@@ -206,6 +231,11 @@ def main():
 
   if not zoom:
     zoom = max(image_src_width / columns, image_src_height / rows)
+
+  #image_src2 = np.zeros((math.ceil(rows*zoom),math.ceil(columns*zoom),3),dtype=np.uint8)
+  #image_src2[0:image_src_height,0:image_src_width,:] = image_src
+  #image_src = image_src2
+  #image_src_height, image_src_width, _ = image_src.shape
 
   sx, sy, ex, ey = calc_image_crop(cx,cy,zoom,image_src_width,image_src_height,columns,rows)
   #dx = min(dx, image_width)
@@ -248,7 +278,7 @@ def main():
     #Screen.wr(f"{image_dst_width_a}x{image_dst_height_a} {image_dst_width_b}x{image_dst_height_b}\r\n")
     #Screen.wr(f"{image_dst_width}x{image_dst_height}\r\n")
     Screen.restore_cursor_position()
-    display(image_dst)
+    display(image_dst, columns, rows)
     if args.interactive:
       key = Keyboard.get_input()
      
@@ -269,6 +299,7 @@ def main():
           crop_change = True
         case b"=": # Plus + Zoom in
           zoom = zoom - 1   
+          zoom = max(zoom,1)
           crop_change = True      
         case b"-": # Minus - Zoom out
           zoom = zoom + 1
