@@ -174,6 +174,43 @@ def display(img_src, columns, rows):
     #display += b"\r\n"
     Screen.wr(display) # Hack for Windows 
     display = b"\r\n"
+    
+  if src_height % 2: # Ostatni wersz pixeli
+    for x in range(src_width):
+      #display += f"\x1b[38;2;{img_src[y*2+0,x,0]};{img_src[y*2+0,x,1]};{img_src[y*2+0,x,2]}m"
+      #display += f"\x1b[48;2;{img_src[y*2+1,x,0]};{img_src[y*2+1,x,1]};{img_src[y*2+1,x,2]}m"
+      display += bytes(f"\x1b[38;2;{img_src[src_height-1,x,0]};{img_src[src_height-1+0,x,1]};{img_src[src_height-1+0,x,2]}m","utf-8")
+      display += bytes(f"\x1b[48;2;{0};{0};{0}m","utf-8")
+      #display += "\xe2\x96\x80"
+      #display += u'\u04d2'
+      #display += u'\ue29680'
+      #display += u'\u2580'
+      display += PIXEL_CHARACTER
+    #for x in range(math.ceil((columns-src_width)/2)):
+    #  display += b"\x1b[38;2;0;0;0m"
+    #  display += b"\x1b[48;2;0;0;0m"
+    #  display += PIXEL_CHARACTER
+    for x in range((columns-src_width)):
+      display += b"\x1b[38;2;0;0;0m"
+      display += b"\x1b[48;2;0;0;0m"
+      display += PIXEL_CHARACTER
+    display += b"\x1b[38;2;0;0;0m"
+    display += b"\x1b[48;2;0;0;0m"
+    #display += b"\r\n"
+    Screen.wr(display) # Hack for Windows 
+    display = b"\r\n"
+
+  for y in range((rows-src_height)//2): # Fill the screen
+    for x in range(columns):
+      display += b"\x1b[38;2;0;0;0m"
+      display += b"\x1b[48;2;0;0;0m"
+      display += PIXEL_CHARACTER
+    display += b"\x1b[38;2;0;0;0m"
+    display += b"\x1b[48;2;0;0;0m"
+    #display += b"\r\n"
+    Screen.wr(display) # Hack for Windows 
+    display = b"\r\n"
+    
   #Screen.wr(display[:-2]) # Optimal for Linux
   
   #Screen.wr("\r\n")
