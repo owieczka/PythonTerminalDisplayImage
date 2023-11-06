@@ -38,6 +38,8 @@ import cv2
 
 import math
 
+import signal
+
 #--------------------------------------
 # Screen Class
 #--------------------------------------
@@ -102,6 +104,10 @@ class Screen:
   @staticmethod
   def screen_size() -> tuple[int, int]:
     return shutil.get_terminal_size()
+
+  @classmethod
+  def set_screen_resize_listener(cls, handler):
+    signal.signal(signal.SIGWINCH, lambda sig, stk: handler(cls))
 
 #--------------------------------------
 # Keyboard Class
@@ -168,7 +174,6 @@ def display(img_src, columns, rows):
     #display += b"\r\n"
     Screen.wr(display) # Hack for Windows 
     display = b"\r\n"
-  
   #Screen.wr(display[:-2]) # Optimal for Linux
   
   #Screen.wr("\r\n")
@@ -194,7 +199,47 @@ def calc_image_crop(cx,cy,zoom,image_width,image_height,columns,rows):
 
   return sx,sy,ex,ey
 
+def on_screen_resize(cls):
+  global image_dst, columns, rows
+  columns, rows = Screen.screen_size()
+  rows = rows*2
+  rescale_image_to_screen()
+  draw_image_on_screen()
+
+def draw_image_on_screen():
+  global image_dst, columns, rows
+  Screen.restore_cursor_position()
+  display(image_dst, columns, rows)
+
+def rescale_image_to_screen():
+  global image_src, image_croped, image_dst, sy, ey, sx, ex, columns, rows
+  
+  image_croped = image_src[sy:ey,sx:ex,:]
+
+  image_height, image_width, _ = image_croped.shape
+
+  #Screen.wr(f"Crop {sx}x{sy}-{ex}x{ey} {dx}x{dy}\r\n")
+  #Screen.wr(f"Image crop: {image_width}x{image_height}\r\n")
+
+  image_dst_width_a = int(rows * image_width / image_height)
+  image_dst_height_a = rows
+
+  image_dst_width_b = columns
+  image_dst_height_b = int(columns * image_height / image_width)
+
+
+  image_dst_width = image_dst_width_b
+  image_dst_height = image_dst_height_b
+
+  if image_dst_width_a<columns:
+    image_dst_width = image_dst_width_a
+    image_dst_height = image_dst_height_a    
+
+  image_dst = resize_image(image_croped, image_dst_width, image_dst_height)
+
 def main():
+  global image_src, image_croped, image_dst, sy, ey, sx, ex, columns, rows
+  
   parser = argparse.ArgumentParser(
     prog = "TerminalDisplayImage",
     description = "Allow to preview image files in a terminal. Works both on windows and linux"
@@ -211,6 +256,8 @@ def main():
   zoom = args.zoom
 
   app_is_running = args.interactive
+
+  Screen.set_screen_resize_listener(on_screen_resize)
   
   Screen.init_tty()
   Screen.cursor(False)
@@ -256,34 +303,12 @@ def main():
   Screen.save_cursor_position()
 
   while True:
-    image_croped = image_src[sy:ey,sx:ex,:]
-
-    image_height, image_width, _ = image_croped.shape
-
-    #Screen.wr(f"Crop {sx}x{sy}-{ex}x{ey} {dx}x{dy}\r\n")
-    #Screen.wr(f"Image crop: {image_width}x{image_height}\r\n")
-
-    image_dst_width_a = int(rows * image_width / image_height)
-    image_dst_height_a = rows
-
-    image_dst_width_b = columns
-    image_dst_height_b = int(columns * image_height / image_width)
-
-
-    image_dst_width = image_dst_width_b
-    image_dst_height = image_dst_height_b
-
-    if image_dst_width_a<columns:
-      image_dst_width = image_dst_width_a
-      image_dst_height = image_dst_height_a    
-
-    image_dst = resize_image(image_croped, image_dst_width, image_dst_height)
-
+    rescale_image_to_screen()
     #Screen.wr(f"{image_width}x{image_height}\r\n")
     #Screen.wr(f"{image_dst_width_a}x{image_dst_height_a} {image_dst_width_b}x{image_dst_height_b}\r\n")
     #Screen.wr(f"{image_dst_width}x{image_dst_height}\r\n")
-    Screen.restore_cursor_position()
-    display(image_dst, columns, rows)
+    draw_image_on_screen()
+    
     if args.interactive:
       key = Keyboard.get_input()
      
