@@ -20,7 +20,10 @@
 #-------------------------------------
 # [ ] Odświerzenie przy skalowaniu terminalu
 # [ ] Obsługa myszki
-# [ ] Przesuwanie skalowane zoomem
+# [x] Przesuwanie skalowane zoomem
+# [ ] Wsparcie dla Bayera
+# [ ] Wsparcie dla Video
+# [x] Wczyt obrazów za pomocą opencv
 #    
 #-------------------------------------
 
@@ -220,7 +223,9 @@ def main():
 
   #Screen.wr(f"{filename}\r\n")
 
-  image_src = imageio.v3.imread(filename)
+  #image_src = imageio.v3.imread(filename)
+  image_src = cv2.imread(filename)
+  image_src = image_src[:,:,::-1]
 
   image_src_height, image_src_width, _ = image_src.shape
   
@@ -286,16 +291,16 @@ def main():
       crop_change = False
       match key:
         case b"a":
-          cx = cx - 1
+          cx = cx - zoom
           crop_change = True
         case b"d":
-          cx = cx + 1
+          cx = cx + zoom
           crop_change = True
         case b"w":
-          cy = cy - 1
+          cy = cy - zoom
           crop_change = True
         case b"s":
-          cy = cy + 1
+          cy = cy + zoom
           crop_change = True
         case b"=": # Plus + Zoom in
           zoom = zoom - 1   
@@ -304,6 +309,10 @@ def main():
         case b"-": # Minus - Zoom out
           zoom = zoom + 1
           crop_change = True
+        case b"r": # Rotate image
+          image_src = np.rot90(image_src,axes=(0,1))
+        case b"f": # Flip
+          image_src = np.flip(image_src,axis=0)
         case b"q":
           app_is_running = False
       if crop_change:
